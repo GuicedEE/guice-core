@@ -21,7 +21,7 @@
         <url>http://www.google.com</url>
     </organization>
     <properties>
-        <project.scm.nameUrl>/GuicedEE/Services</project.scm.nameUrl>
+        <project.scm.nameUrl>/GuicedEE/guice-core</project.scm.nameUrl>
     </properties>
     <url>https://guicedee.com</url>
     <dependencies>
