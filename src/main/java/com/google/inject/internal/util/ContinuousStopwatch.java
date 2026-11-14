@@ -28,6 +28,7 @@ import java.util.logging.Logger;
  */
 
 public final class ContinuousStopwatch {
+  private static final boolean STARTUP_DIAGNOSTICS = Boolean.getBoolean("guice_startup_diagnostics");
   private final Logger logger = Logger.getLogger(ContinuousStopwatch.class.getName());
   private final Stopwatch stopwatch;
 
@@ -51,6 +52,10 @@ public final class ContinuousStopwatch {
 
   /** Resets and logs elapsed time in milliseconds. */
   public void resetAndLog(String label) {
-    logger.fine(label + ": " + reset() + "ms");
+    long elapsed = reset();
+    logger.fine(label + ": " + elapsed + "ms");
+    if (STARTUP_DIAGNOSTICS) {
+      System.err.println("GUICE_PHASE " + label + ": " + elapsed + "ms");
+    }
   }
 }

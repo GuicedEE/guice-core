@@ -53,6 +53,7 @@ import static org.objectweb.asm.Opcodes.SWAP;
 import static org.objectweb.asm.Opcodes.V1_8;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.InvocationHandler;
@@ -163,9 +164,12 @@ final class Enhancer extends AbstractGlueGenerator {
 
   private final String checkcastToProxy;
 
-  Enhancer(Class<?> hostClass, Map<Method, Method> bridgeDelegates) {
+  private final boolean aheadOfTime;
+
+  Enhancer(Class<?> hostClass, Map<Method, Method> bridgeDelegates, boolean aheadOfTime) {
     super(hostClass, ENHANCER_BY_GUICE_MARKER);
     this.bridgeDelegates = bridgeDelegates;
+    this.aheadOfTime = aheadOfTime;
 
     // The enhancer now always generates a named proxy class, so emitted bytecode can safely
     // downcast `this` and other proxy instances to the generated proxy type.
@@ -223,7 +227,7 @@ final class Enhancer extends AbstractGlueGenerator {
     Handle trampolineHandle =
         new Handle(H_INVOKESTATIC, proxyName, TRAMPOLINE_NAME, TRAMPOLINE_DESCRIPTOR, false);
 
-    if (ClassDefining.canLoadProxyByName(hostClass)) {
+    if (!aheadOfTime && ClassDefining.canLoadProxyByName(hostClass)) {
       // generate lambda glue to make the raw trampoline look like an invoker table
 
       mv.visitMethodInsn(
@@ -254,7 +258,7 @@ final class Enhancer extends AbstractGlueGenerator {
           false);
 
     } else {
-      // proxy class is hidden so we can't create our lambda glue, store raw trampoline instead
+      // Store the raw trampoline when dynamic lambda linkage is unavailable or explicitly avoided.
       mv.visitLdcInsn(trampolineHandle);
     }
 
@@ -411,6 +415,14 @@ final class Enhancer extends AbstractGlueGenerator {
 
   @Override
   protected MethodHandle lookupInvokerTable(Class<?> glueClass) throws Throwable {
+    if (aheadOfTime) {
+      // Reading the static invoker field would initialize the application superclass during the
+      // image build. Unreflecting the trampoline leaves all application initialization at runtime.
+      Method trampoline = glueClass.getDeclaredMethod(
+          TRAMPOLINE_NAME, int.class, Object.class, Object[].class);
+      trampoline.setAccessible(true);
+      return MethodHandles.lookup().unreflect(trampoline);
+    }
     return (MethodHandle) glueClass.getField(INVOKERS_NAME).get(null);
   }
 

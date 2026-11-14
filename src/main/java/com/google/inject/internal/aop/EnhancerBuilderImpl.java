@@ -59,14 +59,22 @@ final class EnhancerBuilderImpl implements BytecodeGen.EnhancerBuilder {
 
   private final Map<Method, Method> bridgeDelegates;
 
+  private final boolean aheadOfTime;
+
+  // AOT builders must never reuse the JVM's dynamically linked invoker tables.
+  private final Map<BitSet, Function<String, BiFunction<Object, Object[], Object>>> preparedEnhancers;
+
   EnhancerBuilderImpl(
       Class<?> hostClass,
       Collection<Method> enhanceableMethods,
-      Map<Method, Method> bridgeDelegates) {
+      Map<Method, Method> bridgeDelegates,
+      boolean aheadOfTime) {
 
     this.hostClass = hostClass;
     this.enhanceableMethods = enhanceableMethods.toArray(new Method[0]);
     this.bridgeDelegates = ImmutableMap.copyOf(bridgeDelegates);
+    this.aheadOfTime = aheadOfTime;
+    this.preparedEnhancers = aheadOfTime ? new HashMap<>() : null;
   }
 
   @Override
@@ -82,9 +90,10 @@ final class EnhancerBuilderImpl implements BytecodeGen.EnhancerBuilder {
     }
 
     Map<BitSet, Function<String, BiFunction<Object, Object[], Object>>> enhancers =
-        ENHANCERS.get(hostClass);
+        aheadOfTime ? preparedEnhancers : ENHANCERS.get(hostClass);
     synchronized (enhancers) {
-      return enhancers.computeIfAbsent(methodIndices, this::doBuildEnhancer);
+      return enhancers.computeIfAbsent(
+          aheadOfTime ? (BitSet) methodIndices.clone() : methodIndices, this::doBuildEnhancer);
     }
   }
 
@@ -104,6 +113,6 @@ final class EnhancerBuilderImpl implements BytecodeGen.EnhancerBuilder {
       glueMap.put(signature(method), method);
     }
 
-    return new Enhancer(hostClass, bridgeDelegates).glue(glueMap);
+    return new Enhancer(hostClass, bridgeDelegates, aheadOfTime).glue(glueMap);
   }
 }

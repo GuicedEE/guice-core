@@ -76,6 +76,20 @@ public final class ClassBuilding {
 
   /** Builder of enhancers that provide method interception via bytecode generation. */
   public static BytecodeGen.EnhancerBuilder buildEnhancerBuilder(Class<?> hostClass) {
+    return buildEnhancerBuilder(hostClass, false);
+  }
+
+  /**
+   * Builds interception trampolines ahead of time without initializing the host class or creating
+   * lambdas in the generated class initializer. Intended for closed-world image builders; normal
+   * JVM injection retains its existing invoker strategy.
+   */
+  public static BytecodeGen.EnhancerBuilder buildAheadOfTimeEnhancerBuilder(Class<?> hostClass) {
+    return buildEnhancerBuilder(hostClass, true);
+  }
+
+  private static BytecodeGen.EnhancerBuilder buildEnhancerBuilder(
+      Class<?> hostClass, boolean aheadOfTime) {
     Map<String, Object> methodPartitions = new HashMap<>();
 
     visitMethodHierarchy(
@@ -107,7 +121,7 @@ public final class ClassBuilding {
       }
     }
 
-    return new EnhancerBuilderImpl(hostClass, enhanceableMethods.values(), bridgeDelegates);
+    return new EnhancerBuilderImpl(hostClass, enhanceableMethods.values(), bridgeDelegates, aheadOfTime);
   }
 
   /**
