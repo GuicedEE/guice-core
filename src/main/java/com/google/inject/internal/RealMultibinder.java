@@ -116,9 +116,13 @@ public final class RealMultibinder<T> implements Module {
     // The collection this exposes is internally an ImmutableList, so it's OK to massage
     // the guice Provider to jakarta Provider in the value (since the guice Provider implements
     // jakarta Provider).
-    binder
-        .bind(bindingSelection.getCollectionOfJakartaProvidersKey())
-        .to((Key) bindingSelection.getCollectionOfProvidersKey());
+    // This fork uses Guice Provider for both keys. Do not bind an alias to itself.
+    if (!bindingSelection.getCollectionOfJakartaProvidersKey()
+        .equals(bindingSelection.getCollectionOfProvidersKey())) {
+      binder
+          .bind(bindingSelection.getCollectionOfJakartaProvidersKey())
+          .to((Key) bindingSelection.getCollectionOfProvidersKey());
+    }
   }
 
   public void permitDuplicates() {
